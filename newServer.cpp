@@ -1,3 +1,4 @@
+
 #include <iostream>
 #include <pthread.h>
 #include <zlib.h>
@@ -54,6 +55,9 @@ class Block
 
 };
 
+void serverCheckingBlocks();
+volatile sig_atomic_t signal_received = 0;
+volatile sig_atomic_t check_blocks_flag = 0;
 list<Block> blockchain;
 
 Block testingBlock; // testing the block if its good --> push to blockchain list. 
@@ -103,76 +107,77 @@ bool proofOfWork(const Block& i_Block)
     return (maskCheckForDifficulty(i_Block.m_Block.difficulty, hashOfCRC32));
 }
 
-void signal_handler(int i_Sig)
-{
-    numOfMiners++;
-    string PIPED_NAME_1 = "/home/liorerez6/Desktop/Piped_Miner_To_Server";
-    const char* READ_PIPED_NAME = PIPED_NAME_1.c_str();
+// void signal_handler(int i_Sig)
+// {
+//     numOfMiners++;
+//     string PIPED_NAME_1 = "/home/liorerez6/Desktop/Piped_Miner_To_Server";
+//     const char* READ_PIPED_NAME = PIPED_NAME_1.c_str();
 
    
-    if(numOfMiners == 1)
-    {
-        ReadMinerFD = open(READ_PIPED_NAME, O_RDONLY); //maybe add RDWR
+//     if(numOfMiners == 1)
+//     {
+//         ReadMinerFD = open(READ_PIPED_NAME, O_RDWR); //maybe add RDWR
 
-        if(ReadMinerFD < 0)
-        {
-            exit(1);
-        }
-    }
+//         if(ReadMinerFD < 0)
+//         {
+//             exit(1);
+//         }
+//     }
 
 
-    string PIPED_NAME_2 = "/home/liorerez6/Desktop/Piped_Server_To_Miner_";
-    string PIPED_NAME_STR_2 = PIPED_NAME_2 + to_string(numOfMiners);
-    const char* WRITE_PIPED_NAME = PIPED_NAME_STR_2.c_str();
+//     string PIPED_NAME_2 = "/home/liorerez6/Desktop/Piped_Server_To_Miner_";
+//     string PIPED_NAME_STR_2 = PIPED_NAME_2 + to_string(numOfMiners);
+//     const char* WRITE_PIPED_NAME = PIPED_NAME_STR_2.c_str();
 
-    int Write_fd = open(WRITE_PIPED_NAME, O_WRONLY);
+//     int Write_fd = open(WRITE_PIPED_NAME, O_WRONLY);
 
-    if(Write_fd < 0) 
-    {
-        exit(1);
-    }
+//     if(Write_fd < 0) 
+//     {
+//         exit(1);
+//     }
 
-    WriteMinerFD.push_back(Write_fd);
-    Block currentBlock = blockchain.back();
-    cout << "wrote genesis block: " << currentBlock.hash << " and its height: " << currentBlock.m_Block.height << " difficulty: " << currentBlock.m_Block.difficulty << endl;
+//     WriteMinerFD.push_back(Write_fd);
+//     Block currentBlock = blockchain.back();
+//     cout << "wrote genesis block: " << currentBlock.hash << " and its height: " << currentBlock.m_Block.height << " difficulty: " << currentBlock.m_Block.difficulty << endl;
 
-    write(Write_fd, &blockchain.back(), sizeof(Block)); // writes the last block in the chain
+//     write(Write_fd, &blockchain.back(), sizeof(Block)); // writes the last block in the chain
     
-    // write to the common file
-    //--------------------------------------------------
-    const char* commonFilePath = "/home/liorerez6/Desktop/CommonFile.conf";
-    FILE* file = fopen(commonFilePath, "r+");
-    if (file == nullptr) {
-        perror("fopen");
-        exit(1);
-    }
+//     // write to the common file
+//     //--------------------------------------------------
+//     const char* commonFilePath = "/home/liorerez6/Desktop/CommonFile.conf";
+//     FILE* file = fopen(commonFilePath, "r+");
+//     if (file == nullptr) {
+//         perror("fopen");
+//         exit(1);
+//     }
 
-    // Buffer to hold the content of the file
-    char buffer[256];
-    fread(buffer, sizeof(char), sizeof(buffer) - 1, file);
-    buffer[255] = '\0';  // Null-terminate the buffer
+//     // Buffer to hold the content of the file
+//     char buffer[256];
+//     fread(buffer, sizeof(char), sizeof(buffer) - 1, file);
+//     buffer[255] = '\0';  // Null-terminate the buffer
 
-    // Find the position of MINER_COUNTER
-    char* pos = strstr(buffer, "MINER_COUNTER = ");
-    if (pos != nullptr) {
-        // Move the pointer to the value part and update it
-        pos += strlen("MINER_COUNTER = ");
-        sprintf(pos, "%d\n", numOfMiners);
-    }
+//     // Find the position of MINER_COUNTER
+//     char* pos = strstr(buffer, "MINER_COUNTER = ");
+//     if (pos != nullptr) {
+//         // Move the pointer to the value part and update it
+//         pos += strlen("MINER_COUNTER = ");
+//         sprintf(pos, "%d\n", numOfMiners);
+//     }
 
-    // Rewind and overwrite the file with updated content
-    rewind(file);
-    fwrite(buffer, sizeof(char), strlen(buffer), file);
-    fclose(file);
+//     // Rewind and overwrite the file with updated content
+//     rewind(file);
+//     fwrite(buffer, sizeof(char), strlen(buffer), file);
+//     fclose(file);
 
-    //--------------------------------------------------
-}
+//     //--------------------------------------------------
+//     serverCheckingBlocks();
+// }
 
 void InitServer()
 {
     int pid;
     pid = getpid();
-     fdOfCommonFile = open("/home/liorerez6/Desktop/CommonFile.conf", O_RDONLY);
+    fdOfCommonFile = open("/home/liorerez6/Desktop/CommonFile.conf", O_RDONLY);
 
     if (fdOfCommonFile == -1) {
         perror("open");
@@ -215,6 +220,63 @@ void InitServer()
 
 }
 
+void signal_handler(int i_Sig) {
+    numOfMiners++;
+    string PIPED_NAME_1 = "/home/liorerez6/Desktop/Piped_Miner_To_Server";
+    const char* READ_PIPED_NAME = PIPED_NAME_1.c_str();
+
+    if(numOfMiners == 1) {
+        ReadMinerFD = open(READ_PIPED_NAME, O_RDWR); //maybe add RDWR
+        if(ReadMinerFD < 0) {
+            exit(1);
+        }
+    }
+
+    string PIPED_NAME_2 = "/home/liorerez6/Desktop/Piped_Server_To_Miner_";
+    string PIPED_NAME_STR_2 = PIPED_NAME_2 + to_string(numOfMiners);
+    const char* WRITE_PIPED_NAME = PIPED_NAME_STR_2.c_str();
+
+    int Write_fd = open(WRITE_PIPED_NAME, O_WRONLY);
+    if(Write_fd < 0) {
+        exit(1);
+    }
+
+    WriteMinerFD.push_back(Write_fd);
+    Block currentBlock = blockchain.back();
+    cout << "wrote genesis block: " << currentBlock.hash << " and its height: " << currentBlock.m_Block.height << " difficulty: " << currentBlock.m_Block.difficulty << endl;
+    write(Write_fd, &blockchain.back(), sizeof(Block)); // writes the last block in the chain
+
+    // write to the common file
+    //--------------------------------------------------
+    const char* commonFilePath = "/home/liorerez6/Desktop/CommonFile.conf";
+    FILE* file = fopen(commonFilePath, "r+");
+    if (file == nullptr) {
+        perror("fopen");
+        exit(1);
+    }
+
+    // Buffer to hold the content of the file
+    char buffer[256];
+    fread(buffer, sizeof(char), sizeof(buffer) - 1, file);
+    buffer[255] = '\0';  // Null-terminate the buffer
+
+    // Find the position of MINER_COUNTER
+    char* pos = strstr(buffer, "MINER_COUNTER = ");
+    if (pos != nullptr) {
+        // Move the pointer to the value part and update it
+        pos += strlen("MINER_COUNTER = ");
+        sprintf(pos, "%d\n", numOfMiners);
+    }
+
+    // Rewind and overwrite the file with updated content
+    rewind(file);
+    fwrite(buffer, sizeof(char), strlen(buffer), file);
+    fclose(file);
+
+    //--------------------------------------------------
+    check_blocks_flag = 1;
+}
+
 
 void serverLoop();
 
@@ -231,7 +293,6 @@ void broadcastBlockToAllMiners()
 
     for (int i = 0; i < numOfMiners;i++)
     {
-        cout << "wrote the block height: " << temp.m_Block.height << endl;
         write(WriteMinerFD[i],&temp ,sizeof(Block));
     }
 
@@ -239,9 +300,7 @@ void broadcastBlockToAllMiners()
 
 void serverLoop() 
 {
-    // Generate genesis block
 
-    //create new text file with his pid
     InitServer();
 
     BlockForHash genesisBlock1(0, time(NULL), 0, g_Difficulty, 1, 0);
@@ -251,11 +310,21 @@ void serverLoop()
 
     signal(SIGUSR1, signal_handler);
 
+    while(true) 
+    {
+        if (check_blocks_flag) {
+            serverCheckingBlocks();
+            check_blocks_flag = 0;
+        }
+    }
+}
+
+void serverCheckingBlocks()
+{
     while (true) 
     {
-        read(ReadMinerFD, &testingBlock, sizeof(Block)); // chat gpt please check that this line corespond to the line in the Miner.cpp Write_fd
-        cout << "got a new block from miner !! " << testingBlock.m_Block.height << endl;
-        
+        read(ReadMinerFD, &testingBlock, sizeof(Block)); 
+
         if(proofOfWork(testingBlock))
         {
             blockchain.push_back(testingBlock);
@@ -268,79 +337,5 @@ void serverLoop()
             
             broadcastBlockToAllMiners();
         }
-
-        cout << "left the stuck on 'the read'";
     }
 }
-// }
-
-
-
-
-/*
-
-SERVER:
-------------------------------------------------------------
-Server runs first
-
-server gets PID
-
-server writes its PID to a common place where miners can see
-server write to the same place the number of miners created
-
-if gets signal of creation of new miner:
-
-    open the new named pipe from the miner
-    send current block to the new named pipe
-
-if new blocked recieved:
-    check validation
-    if approved:
-        broadcast new block to all miner (through the named pipe)
-
-------------------------------------------------------------
-
-
-MINER:
-------------------------------------------------------------
-
-Miner runs after sever creation
-
-read from the common shared place the server id
-
-read from the same common place the number of miner
-
-miner create a named pipe with the name_pipe_<minerId> with its creation
-
-sends signal that he is been created
-
-wait for the first block (outside of while loop)
-
-start mining and constantly checks for a new block (NONBLOCK option)
-
-when seccessful - sends the new block to the server (through the pipe)
-
-------------------------------------------------------------
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-*/

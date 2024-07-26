@@ -40,7 +40,6 @@ class BlockForHash{
 };
 
 
-
 class Block
 {
     public:
@@ -123,14 +122,13 @@ void minerLoop() {
     
     sscanf(buffer, "DIFFICULTY = %d\nPID = %d\nMINER_COUNTER = %d", &difficulty, &serverId, &minerCounter);
 
-    // config file handling ------------------------------------------------------------------
+    // config file handling
+    //------------------------------------------------------------------
     
     minerCounter++;
     int Read_fd;
     int Write_fd;
 
-
-    
     //-------------------------------------------------------------------------------
     string PIPED_NAME_1 = "/home/liorerez6/Desktop/Piped_Miner_To_Server";
     const char* WRITE_PIPED_NAME = PIPED_NAME_1.c_str();
@@ -165,10 +163,6 @@ void minerLoop() {
         exit(1);
     }
 
-    //read(Read_fd, &currentBlock, sizeof(Block));
-
-   // close(Read_fd);
-
     Write_fd = open(WRITE_PIPED_NAME, O_WRONLY);
 
     if (Write_fd == -1) 
@@ -177,47 +171,29 @@ void minerLoop() {
         exit(1);
     }
 
-    //Read_fd = open(READ_PIPED_NAME, O_RDONLY | O_NONBLOCK);
-
     read(Read_fd, &currentBlock, sizeof(Block)); // waiting untill gets
 
     close(Read_fd);
 
     Read_fd = open(READ_PIPED_NAME, O_RDONLY | O_NONBLOCK);
 
-    cout << "first block read: " << currentBlock.hash << " and its height: " << currentBlock.m_Block.height << " difficulty: " << currentBlock.m_Block.difficulty << endl;
-
     setNewBlock(currentBlock, minerCounter, difficulty); 
-    //int old_height = currentBlock.m_Block.height; // soppouse to be always one because the genesis send block with height = 0
 
     Block temp;
     temp.m_Block.height = 0;
-
 
     while (true) 
     {
         while(true)
         {
-            
             read(Read_fd, &temp, sizeof(Block));
-            //read(Read_fd, &currentBlock, sizeof(Block));
 
             if(temp.m_Block.height != 0)
-            {
-                cout << "i am inside the if of checking old height, about to print new block with height: " << currentBlock.m_Block.height << " difficulty: " << currentBlock.m_Block.difficulty << endl;
+            {  
                 currentBlock = temp;
                 setNewBlock(currentBlock, minerCounter, difficulty);
                 temp.m_Block.height = 0;
-                cout << "i am after setting new block inside the if statment , about to print new block with height: " << currentBlock.m_Block.height << " difficulty: " << currentBlock.m_Block.difficulty << endl;
             }
-
-            // if(currentBlock.m_Block.height > old_height)
-            // {
-            //     cout << "i am inside the if of checking old height, about to print new block with height: " << currentBlock.m_Block.height << " difficulty: " << currentBlock.m_Block.difficulty << endl;
-            //     setNewBlock(currentBlock, minerCounter, difficulty);
-            //     old_height = currentBlock.m_Block.height;
-            //     cout << "i am after setting new block inside the if statment , about to print new block with height: " << currentBlock.m_Block.height << " difficulty: " << currentBlock.m_Block.difficulty << endl;
-            // }
 
             currentBlock.m_Block.updateTimestamp();
             currentBlock.m_Block.nonce++;
@@ -236,7 +212,12 @@ void minerLoop() {
         cout << "0x" << hex << currentBlock.hash << endl;
         cout << dec;
         //------------------------------
-        write(Write_fd, &currentBlock, sizeof(Block)); // chat gpt please check that this line corespond to the line in the server.cpp Read_fd
+
+        ssize_t bytesWritten = write(Write_fd, &currentBlock, sizeof(Block)); 
+        if (bytesWritten != sizeof(Block)) 
+        {
+            std::cerr << "Error writing to pipe: expected " << sizeof(Block) << " bytes, but wrote " << bytesWritten << " bytes." << std::endl;
+        } 
     }
 }
 

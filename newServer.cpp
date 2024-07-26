@@ -3,7 +3,7 @@
 #include <pthread.h>
 #include <zlib.h>
 #include <list>
-#include <unistd.h> // For sleep function
+#include <unistd.h>
 #include <chrono>
 #include <string.h>
 #include <csignal>
@@ -16,6 +16,7 @@
 using namespace std;
 
 
+/* class data */
 class BlockForHash{
 
     public:
@@ -42,7 +43,6 @@ class BlockForHash{
 
 };
 
-
 class Block
 {
     public:
@@ -55,27 +55,30 @@ class Block
 
 };
 
+/* method's declaration */
 void serverCheckingBlocks();
+void serverLoop();
+
+/* Global variables */
+
+/* signals's helper variables */
 volatile sig_atomic_t signal_received = 0;
 volatile sig_atomic_t check_blocks_flag = 0;
+
 list<Block> blockchain;
-
-Block testingBlock; // testing the block if its good --> push to blockchain list. 
-
+Block testingBlock;  
 int numOfMiners = 0;
 int fdOfCommonFile = 0;
 int g_Difficulty = 0;
 int ReadMinerFD;
 vector<int> WriteMinerFD;
 
-// Function to calculate CRC32
+/* methods */
 uLong calculateCRC32(BlockForHash block) {
     uLong crc = crc32(0L, Z_NULL, 0);
     crc = crc32(crc, (const Bytef*)&block, sizeof(block));
     return crc;
 }
-
-
 
 bool maskCheckForDifficulty(int i_Difficulty, int i_hash) {   // true = proper difficulty. false = not good difficulty
     // Initialize mask with 1s in the most significant bit and zeros in the rest
@@ -83,7 +86,6 @@ bool maskCheckForDifficulty(int i_Difficulty, int i_hash) {   // true = proper d
     mask <<= (32 - i_Difficulty); // 100000000000
     return (!(mask & i_hash));  
 }
-
 
 bool proofOfWork(const Block& i_Block) 
 {
@@ -106,72 +108,6 @@ bool proofOfWork(const Block& i_Block)
 
     return (maskCheckForDifficulty(i_Block.m_Block.difficulty, hashOfCRC32));
 }
-
-// void signal_handler(int i_Sig)
-// {
-//     numOfMiners++;
-//     string PIPED_NAME_1 = "/home/liorerez6/Desktop/Piped_Miner_To_Server";
-//     const char* READ_PIPED_NAME = PIPED_NAME_1.c_str();
-
-   
-//     if(numOfMiners == 1)
-//     {
-//         ReadMinerFD = open(READ_PIPED_NAME, O_RDWR); //maybe add RDWR
-
-//         if(ReadMinerFD < 0)
-//         {
-//             exit(1);
-//         }
-//     }
-
-
-//     string PIPED_NAME_2 = "/home/liorerez6/Desktop/Piped_Server_To_Miner_";
-//     string PIPED_NAME_STR_2 = PIPED_NAME_2 + to_string(numOfMiners);
-//     const char* WRITE_PIPED_NAME = PIPED_NAME_STR_2.c_str();
-
-//     int Write_fd = open(WRITE_PIPED_NAME, O_WRONLY);
-
-//     if(Write_fd < 0) 
-//     {
-//         exit(1);
-//     }
-
-//     WriteMinerFD.push_back(Write_fd);
-//     Block currentBlock = blockchain.back();
-//     cout << "wrote genesis block: " << currentBlock.hash << " and its height: " << currentBlock.m_Block.height << " difficulty: " << currentBlock.m_Block.difficulty << endl;
-
-//     write(Write_fd, &blockchain.back(), sizeof(Block)); // writes the last block in the chain
-    
-//     // write to the common file
-//     //--------------------------------------------------
-//     const char* commonFilePath = "/home/liorerez6/Desktop/CommonFile.conf";
-//     FILE* file = fopen(commonFilePath, "r+");
-//     if (file == nullptr) {
-//         perror("fopen");
-//         exit(1);
-//     }
-
-//     // Buffer to hold the content of the file
-//     char buffer[256];
-//     fread(buffer, sizeof(char), sizeof(buffer) - 1, file);
-//     buffer[255] = '\0';  // Null-terminate the buffer
-
-//     // Find the position of MINER_COUNTER
-//     char* pos = strstr(buffer, "MINER_COUNTER = ");
-//     if (pos != nullptr) {
-//         // Move the pointer to the value part and update it
-//         pos += strlen("MINER_COUNTER = ");
-//         sprintf(pos, "%d\n", numOfMiners);
-//     }
-
-//     // Rewind and overwrite the file with updated content
-//     rewind(file);
-//     fwrite(buffer, sizeof(char), strlen(buffer), file);
-//     fclose(file);
-
-//     //--------------------------------------------------
-//     serverCheckingBlocks();
-// }
 
 void InitServer()
 {
@@ -225,9 +161,11 @@ void signal_handler(int i_Sig) {
     string PIPED_NAME_1 = "/home/liorerez6/Desktop/Piped_Miner_To_Server";
     const char* READ_PIPED_NAME = PIPED_NAME_1.c_str();
 
-    if(numOfMiners == 1) {
+    if(numOfMiners == 1) 
+    {
         ReadMinerFD = open(READ_PIPED_NAME, O_RDWR); //maybe add RDWR
-        if(ReadMinerFD < 0) {
+        if(ReadMinerFD < 0) 
+        {
             exit(1);
         }
     }
@@ -277,19 +215,9 @@ void signal_handler(int i_Sig) {
     check_blocks_flag = 1;
 }
 
-
-void serverLoop();
-
-int main()
-{
-    serverLoop();
-    return 0;
-}
-
 void broadcastBlockToAllMiners()
 {
     Block temp = blockchain.back();
-    //temp.m_Block.height++;     // maybe to change
 
     for (int i = 0; i < numOfMiners;i++)
     {
@@ -300,7 +228,6 @@ void broadcastBlockToAllMiners()
 
 void serverLoop() 
 {
-
     InitServer();
 
     BlockForHash genesisBlock1(0, time(NULL), 0, g_Difficulty, 1, 0);
@@ -338,4 +265,10 @@ void serverCheckingBlocks()
             broadcastBlockToAllMiners();
         }
     }
+}
+
+int main()
+{
+    serverLoop();
+    return 0;
 }

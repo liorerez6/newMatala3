@@ -8,6 +8,7 @@
         "unordered_map": "cpp",
         "vector": "cpp",
         "system_error": "cpp",
-        "ostream": "cpp"
+        "ostream": "cpp",
+        "chrono": "cpp"
     }
 }

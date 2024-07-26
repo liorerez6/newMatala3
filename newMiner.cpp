@@ -72,7 +72,7 @@ bool maskCheckForDifficulty(int i_Difficulty, int i_hash) {   // true = proper d
     
 }
 
-
+/* for us to preaprae calculations for next block */
 void setNewBlock(Block& i_newBlockForUpdate, int i_MinerId, int i_Difficulty)
 {
     i_newBlockForUpdate.m_Block.height++;
@@ -130,60 +130,95 @@ void minerLoop() {
     int Write_fd;
 
 
+    
     //-------------------------------------------------------------------------------
-    string PIPED_NAME_1 = "/home/liorerez6/Desktop/Piped_Miner_To_Server_";
-    string PIPED_NAME_STR = PIPED_NAME_1 + to_string(minerCounter);
-    const char* WRITE_PIPED_NAME = PIPED_NAME_STR.c_str();
+    string PIPED_NAME_1 = "/home/liorerez6/Desktop/Piped_Miner_To_Server";
+    const char* WRITE_PIPED_NAME = PIPED_NAME_1.c_str();
     //-------------------------------------------------------------------------------
     string PIPED_NAME_2 = "/home/liorerez6/Desktop/Piped_Server_To_Miner_";
     string PIPED_NAME_STR_2 = PIPED_NAME_2 + to_string(minerCounter);
     const char* READ_PIPED_NAME = PIPED_NAME_STR_2.c_str();
     //-------------------------------------------------------------------------------
 
-    if (mkfifo(WRITE_PIPED_NAME, 0666) != 0) 
+    if(minerCounter == 1)
     {
-        perror("mkfifo");
-        exit(1);
+        if (mkfifo(WRITE_PIPED_NAME, 0666) != 0) 
+        {
+            perror("mkfifo");
+            exit(1);
+        }
     }
-
+   
     if (mkfifo(READ_PIPED_NAME, 0666) != 0) 
     {
         perror("mkfifo");
         exit(1);
     }
 
-    
-    Read_fd = open(READ_PIPED_NAME, O_RDONLY | O_NONBLOCK);
+    Read_fd = open(READ_PIPED_NAME, O_RDWR);
 
     kill(serverId, SIGUSR1);
 
-    
     if (Read_fd == -1) 
     {
         perror("open");
         exit(1);
     }
 
-    read(Read_fd, &currentBlock, sizeof(Block));
+    //read(Read_fd, &currentBlock, sizeof(Block));
+
+   // close(Read_fd);
+
+    Write_fd = open(WRITE_PIPED_NAME, O_WRONLY);
+
+    if (Write_fd == -1) 
+    {
+        perror("open");
+        exit(1);
+    }
+
+    //Read_fd = open(READ_PIPED_NAME, O_RDONLY | O_NONBLOCK);
+
+    read(Read_fd, &currentBlock, sizeof(Block)); // waiting untill gets
 
     close(Read_fd);
 
-    Write_fd = open(WRITE_PIPED_NAME, O_WRONLY);
     Read_fd = open(READ_PIPED_NAME, O_RDONLY | O_NONBLOCK);
-    read(Read_fd, &currentBlock, sizeof(Block));
+
+    cout << "first block read: " << currentBlock.hash << " and its height: " << currentBlock.m_Block.height << " difficulty: " << currentBlock.m_Block.difficulty << endl;
+
     setNewBlock(currentBlock, minerCounter, difficulty); 
-    int old_hash = currentBlock.m_Block.height;
+    //int old_height = currentBlock.m_Block.height; // soppouse to be always one because the genesis send block with height = 0
+
+    Block temp;
+    temp.m_Block.height = 0;
+
 
     while (true) 
     {
         while(true)
         {
-            read(Read_fd, &currentBlock, sizeof(Block));
-            if(currentBlock.m_Block.height > old_hash){
-                  currentBlock.m_Block.height--;
-                  setNewBlock(currentBlock, minerCounter, difficulty);
-                  old_hash = currentBlock.m_Block.height;
+            
+            read(Read_fd, &temp, sizeof(Block));
+            //read(Read_fd, &currentBlock, sizeof(Block));
+
+            if(temp.m_Block.height != 0)
+            {
+                cout << "i am inside the if of checking old height, about to print new block with height: " << currentBlock.m_Block.height << " difficulty: " << currentBlock.m_Block.difficulty << endl;
+                currentBlock = temp;
+                setNewBlock(currentBlock, minerCounter, difficulty);
+                temp.m_Block.height = 0;
+                cout << "i am after setting new block inside the if statment , about to print new block with height: " << currentBlock.m_Block.height << " difficulty: " << currentBlock.m_Block.difficulty << endl;
             }
+
+            // if(currentBlock.m_Block.height > old_height)
+            // {
+            //     cout << "i am inside the if of checking old height, about to print new block with height: " << currentBlock.m_Block.height << " difficulty: " << currentBlock.m_Block.difficulty << endl;
+            //     setNewBlock(currentBlock, minerCounter, difficulty);
+            //     old_height = currentBlock.m_Block.height;
+            //     cout << "i am after setting new block inside the if statment , about to print new block with height: " << currentBlock.m_Block.height << " difficulty: " << currentBlock.m_Block.difficulty << endl;
+            // }
+
             currentBlock.m_Block.updateTimestamp();
             currentBlock.m_Block.nonce++;
             currentBlock.hash = calculateCRC32(currentBlock.m_Block);
@@ -201,8 +236,7 @@ void minerLoop() {
         cout << "0x" << hex << currentBlock.hash << endl;
         cout << dec;
         //------------------------------
-        write(Write_fd, &currentBlock, sizeof(Block));
-
+        write(Write_fd, &currentBlock, sizeof(Block)); // chat gpt please check that this line corespond to the line in the server.cpp Read_fd
     }
 }
 

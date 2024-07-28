@@ -52,6 +52,13 @@ class Block
 
 };
 
+class TLV
+{
+    bool m_subscription;
+    Block m_Block;
+    int m_minerId;
+};
+
 
 uLong calculateCRC32(BlockForHash block) {
     uLong crc = crc32(0L, Z_NULL, 0);
@@ -155,6 +162,8 @@ void minerLoop() {
 
     Read_fd = open(READ_PIPED_NAME, O_RDWR);
 
+    
+
     kill(serverId, SIGUSR1);
 
     if (Read_fd == -1) 
@@ -212,7 +221,7 @@ void minerLoop() {
         cout << "0x" << hex << currentBlock.hash << endl;
         cout << dec;
         //------------------------------
-
+        cout<< sizeof(currentBlock) << "BLOCK:" << sizeof(Block) << endl;
         ssize_t bytesWritten = write(Write_fd, &currentBlock, sizeof(Block)); 
         if (bytesWritten != sizeof(Block)) 
         {

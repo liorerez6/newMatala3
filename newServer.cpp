@@ -55,6 +55,14 @@ class Block
 
 };
 
+class TLV
+{
+    bool m_subscription;
+    Block m_Block;
+    int m_minerId;
+};
+
+
 /* method's declaration */
 void serverCheckingBlocks();
 void serverLoop();
@@ -62,7 +70,7 @@ void serverLoop();
 /* Global variables */
 
 /* signals's helper variables */
-volatile sig_atomic_t signal_received = 0;
+//volatile sig_atomic_t signal_received = 0;
 volatile sig_atomic_t check_blocks_flag = 0;
 
 list<Block> blockchain;
@@ -239,7 +247,8 @@ void serverLoop()
 
     while(true) 
     {
-        if (check_blocks_flag) {
+        if (check_blocks_flag) 
+        {
             serverCheckingBlocks();
             check_blocks_flag = 0;
         }

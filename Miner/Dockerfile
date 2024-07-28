@@ -1,29 +1,23 @@
-# miner/Dockerfile
-FROM ubuntu:20.04
+# Use an official Ubuntu base image
+FROM ubuntu:latest
 
-# Avoid interactive prompts
-ENV DEBIAN_FRONTEND=noninteractive
-
-# Install necessary packages
+# Install dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \
     cmake \
-    zlib1g-dev \
-    && apt-get clean
+    zlib1g-dev
 
-# Set up working directory
-WORKDIR /app
+# Create directory for the project
+WORKDIR /usr/src/miner
 
-# Copy the entire project directory to /app
-COPY . /app
+# Copy the current directory contents into the container
+COPY . .
 
-# Build the shared library
-WORKDIR /app/SharedLibrary/build
-RUN cmake .. && make
+# Create mnt/mta directory
+RUN mkdir -p /usr/src/mnt/mta
 
-# Build the miner
-WORKDIR /app/Miner/build
-RUN cmake .. && make
+# Build the project
+RUN cmake . && make
 
-# Set the entrypoint for the container
+# Run the miner executable
 CMD ["./newMiner"]

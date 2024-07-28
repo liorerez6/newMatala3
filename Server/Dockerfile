@@ -1,34 +1,23 @@
-# Server/Dockerfile
-FROM ubuntu:20.04
+# Use an official Ubuntu base image
+FROM ubuntu:latest
 
-# Avoid interactive prompts
-ENV DEBIAN_FRONTEND=noninteractive
-
-# Install necessary packages
+# Install dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \
     cmake \
-    zlib1g-dev \
-    && apt-get clean
-    
-    # Set up working directory
-WORKDIR /app
+    zlib1g-dev
 
-RUN mkdir -p /app/mnt/mta
+# Create directory for the project
+WORKDIR /usr/src/server
 
+# Copy the current directory contents into the container
+COPY . .
 
-# Copy the entire project directory to /app
-COPY . /app
+# Create mnt/mta directory
+RUN mkdir -p /usr/src/mnt/mta
 
-# Build the shared library
-WORKDIR /app/SharedLibrary/build
-RUN cmake .. && make
+# Build the project
+RUN cmake . && make
 
-# Build the server
-WORKDIR /app/Server/build
-RUN cmake .. && make
-
-
-WORKDIR /app
-# Set the entrypoint for the container
-CMD ["/app/Server/build/newServer"]
+# Run the server executable
+CMD ["./newServer"]

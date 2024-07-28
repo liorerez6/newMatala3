@@ -1,4 +1,4 @@
-#include "../SharedLibrary/SharedFile.h"
+#include "SharedFile.h"
 
 using namespace std;
 
@@ -82,9 +82,10 @@ void InitServer()
 
     const char* READ_PIPED_NAME = PATH_PIPED_NAME_MINER_TO_SERVER;
 
-
+    
     if (mkfifo(READ_PIPED_NAME, 0666) != 0) 
     {
+        cout << "NNNNNNNN";
         perror("mkfifo");
         exit(1);
     }

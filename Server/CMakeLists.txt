@@ -1,19 +1,23 @@
-# Server/CMakeLists.txt
 cmake_minimum_required(VERSION 3.10)
-project(Server)
 
-# Specify the C++ standard
-set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_CXX_STANDARD_REQUIRED True)
+# Project name
+project(ServerProject)
 
-# Find ZLIB
+# Set the C++ standard
+set(CMAKE_CXX_STANDARD 17)
+
+# Add source files
+set(SOURCES newServer.cpp SharedFile.cpp)
+
+# Include directories
+include_directories(.)
+
+# Find and link zlib
 find_package(ZLIB REQUIRED)
-
-# Add the shared library directorys
-add_subdirectory(/app/SharedLibrary ${CMAKE_BINARY_DIR}/app)
+include_directories(${ZLIB_INCLUDE_DIRS})
 
 # Add the executable
-add_executable(newServer newServer.cpp)
+add_executable(newServer ${SOURCES})
 
-# Link the shared library and ZLIB to the executable
-target_link_libraries(newServer SharedFile ZLIB::ZLIB)
+# Link libraries
+target_link_libraries(newServer ${ZLIB_LIBRARIES} pthread)

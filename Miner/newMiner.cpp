@@ -1,4 +1,4 @@
-#include "../SharedLibrary/SharedFile.h"
+#include "SharedFile.h"
 
 using namespace std;
 

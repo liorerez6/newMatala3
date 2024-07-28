@@ -1,0 +1,5 @@
+/home/liorerez6/Desktop/newMatala3/build/CMakeFiles/SharedFile.dir
+/home/liorerez6/Desktop/newMatala3/build/CMakeFiles/newMiner.dir
+/home/liorerez6/Desktop/newMatala3/build/CMakeFiles/newServer.dir
+/home/liorerez6/Desktop/newMatala3/build/CMakeFiles/edit_cache.dir
+/home/liorerez6/Desktop/newMatala3/build/CMakeFiles/rebuild_cache.dir

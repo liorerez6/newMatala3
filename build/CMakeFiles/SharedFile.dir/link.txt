@@ -1,0 +1,2 @@
+/usr/bin/ar qc libSharedFile.a CMakeFiles/SharedFile.dir/SharedFile.cpp.o
+/usr/bin/ranlib libSharedFile.a

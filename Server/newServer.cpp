@@ -1,68 +1,6 @@
-
-#include <iostream>
-#include <pthread.h>
-#include <zlib.h>
-#include <list>
-#include <unistd.h>
-#include <chrono>
-#include <string.h>
-#include <csignal>
-#include <cstring>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <vector>
+#include "SharedFile.cpp"
 
 using namespace std;
-
-
-/* class data */
-class BlockForHash{
-
-    public:
-
-    int height;
-    int timestamp;
-    unsigned int prev_hash;
-    int difficulty;
-    int nonce;
-    int relayed_by;
-
-    // Constructor
-    BlockForHash(int i_height, int i_timestamp, unsigned int i_prev_hash, int i_difficulty, int i_nonce, int i_relayed_by)
-        : height(i_height), timestamp(i_timestamp), prev_hash(i_prev_hash),
-          difficulty(i_difficulty), nonce(i_nonce), relayed_by(i_relayed_by) {}
-
-
-    void updateTimestamp() {
-        // Get the current time as an integer (seconds since epoch)
-        timestamp = static_cast<int>(std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()));
-    }
-
-    BlockForHash() : height(0), timestamp(0), prev_hash(0), difficulty(0), nonce(0), relayed_by(0) {}
-
-};
-
-class Block
-{
-    public:
-
-    BlockForHash m_Block;
-    unsigned int hash;
-    Block(BlockForHash i_Block, int i_hash) : m_Block(i_Block), hash(i_hash) {};
-    Block() : m_Block(), hash(0) {}
-
-
-};
-
-class TLV
-{
-    public:
-
-    bool m_subscription;
-    Block m_Block;
-    int m_minerId;
-};
 
 
 /* method's declaration */
@@ -70,41 +8,22 @@ void serverCheckingBlocks();
 void serverLoop();
 
 /* Global variables */
-
-/* signals's helper variables */
-//volatile sig_atomic_t signal_received = 0;
-//volatile sig_atomic_t check_blocks_flag = 0;
-
 list<Block> blockchain; 
 int numOfMiners = 0;
-int fdOfCommonFile = 0;
 int g_Difficulty = 0;
 int ReadMinerFD;
 vector<int> WriteMinerFD;
 
 /* methods */
-uLong calculateCRC32(BlockForHash block) {
-    uLong crc = crc32(0L, Z_NULL, 0);
-    crc = crc32(crc, (const Bytef*)&block, sizeof(block));
-    return crc;
-}
-
-bool maskCheckForDifficulty(int i_Difficulty, int i_hash) {   // true = proper difficulty. false = not good difficulty
-    // Initialize mask with 1s in the most significant bit and zeros in the rest
-     uLong mask = 0xFFFFFFFF;
-    mask <<= (32 - i_Difficulty); // 100000000000
-    return (!(mask & i_hash));  
-}
-
 bool proofOfWork(const Block& i_Block) 
 {
     Block curr = blockchain.back();
+
     if(curr.m_Block.height >= i_Block.m_Block.height)
     {
         cout << "Server: Block that accept from Miner " << dec << i_Block.m_Block.relayed_by << " already exist from Miner " << curr.m_Block.relayed_by << endl;
 
         return false;
-        
     }
 
     int hashOfCRC32 = calculateCRC32(i_Block.m_Block);
@@ -122,14 +41,9 @@ void InitServer()
 {
     int pid;
     pid = getpid();
-    fdOfCommonFile = open("/home/liorerez6/Desktop/CommonFile.conf", O_RDONLY);
+    ssize_t bytesRead;
 
-    if (fdOfCommonFile == -1) {
-        perror("open");
-        exit(1);
-    }
-    
-    int fdOfCommonFile = open("/home/liorerez6/Desktop/CommonFile.conf", O_RDWR | O_CREAT, 0666);
+    int fdOfCommonFile = open(PATH_OF_COMMON_FILE, O_RDWR | O_CREAT, 0666);
 
     if (fdOfCommonFile == -1) {
         perror("open");
@@ -138,7 +52,7 @@ void InitServer()
 
     // Read the existing content into a buffer
     char buffer[256];
-    ssize_t bytesRead = read(fdOfCommonFile, buffer, sizeof(buffer) - 1);
+    bytesRead = read(fdOfCommonFile, buffer, sizeof(buffer) - 1);
     if (bytesRead == -1) {
         perror("read");
         close(fdOfCommonFile);
@@ -149,22 +63,25 @@ void InitServer()
     // Parse the config file content
     sscanf(buffer, "DIFFICULTY = %d", &g_Difficulty);
 
-
     // Prepare new content
     string newContent;
     
     newContent += "PID = " + to_string(pid) + "\n";
     newContent += "MINER_COUNTER = " + to_string(numOfMiners) + "\n";
     
-
     // Write the new content to the file
     lseek(fdOfCommonFile, 0, SEEK_END); // Rewind to the beginning of the file
-    write(fdOfCommonFile, newContent.c_str(), newContent.size());
+
+    bytesRead = write(fdOfCommonFile, newContent.c_str(), newContent.size());
+    if (bytesRead == -1) {
+        perror("write");
+        exit(1);
+    }
 
     close(fdOfCommonFile);
 
-    string PIPED_NAME_1 = "/home/liorerez6/Desktop/Piped_Miner_To_Server";
-    const char* READ_PIPED_NAME = PIPED_NAME_1.c_str();
+    const char* READ_PIPED_NAME = PATH_PIPED_NAME_MINER_TO_SERVER;
+
 
     if (mkfifo(READ_PIPED_NAME, 0666) != 0) 
     {
@@ -173,33 +90,39 @@ void InitServer()
     }
 
     ReadMinerFD = open(READ_PIPED_NAME, O_RDWR); //maybe add RDWR
+
     if(ReadMinerFD < 0) 
     {
         exit(1);
     }
 }
 
-void signal_handler(int i_Sig) {
+void MinerSubscription() 
+{
     numOfMiners++;
-    
-    string PIPED_NAME_2 = "/home/liorerez6/Desktop/Piped_Server_To_Miner_";
-    string PIPED_NAME_STR_2 = PIPED_NAME_2 + to_string(numOfMiners);
-    const char* WRITE_PIPED_NAME = PIPED_NAME_STR_2.c_str();
+    ssize_t bytesWrite;
 
-    int Write_fd = open(WRITE_PIPED_NAME, O_WRONLY);
-    if(Write_fd < 0) {
+    string piped_name_str_2 = PATH_PIPED_NAME_SERVER_TO_MINER + to_string(numOfMiners);
+    const char* write_piped_name = piped_name_str_2.c_str();
+
+    int Write_fd = open(write_piped_name, O_WRONLY);
+
+    if(Write_fd < 0) 
+    {
         exit(1);
     }
 
     WriteMinerFD.push_back(Write_fd);
     Block currentBlock = blockchain.back();
     cout << "wrote genesis block: " << currentBlock.hash << " and its height: " << currentBlock.m_Block.height << " difficulty: " << currentBlock.m_Block.difficulty << endl;
-    write(Write_fd, &blockchain.back(), sizeof(Block)); // writes the last block in the chain
-
+    bytesWrite = write(Write_fd, &blockchain.back(), sizeof(Block)); // writes the last block in the chain
+    if (bytesWrite == -1) {
+        perror("write");
+        exit(1);
+    }
     // write to the common file
     //--------------------------------------------------
-    const char* commonFilePath = "/home/liorerez6/Desktop/CommonFile.conf";
-    FILE* file = fopen(commonFilePath, "r+");
+    FILE* file = fopen(PATH_OF_COMMON_FILE, "r+");
     if (file == nullptr) {
         perror("fopen");
         exit(1);
@@ -226,35 +149,47 @@ void signal_handler(int i_Sig) {
 
 void broadcastBlockToAllMiners()
 {
+    ssize_t bytesSend;
+
     for (int i = 0; i < numOfMiners;i++)
     {
-        write(WriteMinerFD[i],&blockchain.back() ,sizeof(Block));
+        bytesSend = write(WriteMinerFD[i],&blockchain.back() ,sizeof(Block));
+
+        if (bytesSend == -1) 
+        {
+            perror("write");
+            exit(1);
+        } 
     }
 }
 
+
 void serverLoop() 
 {
+    const char* outputFilePath = "/var/log/mtacoin.log";
+    redirectOutputToFile(outputFilePath);
+
     InitServer();
     TLV tlv;
+    ssize_t bytesRead;
+
     BlockForHash genesisBlock1(0, time(NULL), 0, g_Difficulty, 1, 0);
     genesisBlock1.updateTimestamp();
     Block genesisBlock(genesisBlock1, 0);
     blockchain.push_back(genesisBlock);
 
-    //signal(SIGUSR1, signal_handler);
-
-
-    while(true) 
+    while (true) 
     {
-        while (true) 
+        bytesRead = read(ReadMinerFD, &tlv, sizeof(TLV)); 
+        if (bytesRead == -1) 
         {
-        //read(ReadMinerFD, &testingBlock, sizeof(Block)); 
-
-        read(ReadMinerFD, &tlv, sizeof(TLV)); 
+            perror("write");
+            exit(1);
+        } 
 
         if(tlv.m_subscription)
         {
-            signal_handler(5);
+            MinerSubscription();
         }
         else
         {
@@ -272,12 +207,8 @@ void serverLoop()
                 broadcastBlockToAllMiners();
             }
         }
-
-        
-    }
     }
 }
-
 
 int main()
 {

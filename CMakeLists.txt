@@ -7,9 +7,17 @@ project(BlockchainMiner VERSION 1.0)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-# Add an executable
-add_executable(main main.cpp)
+# Add the shared library
+add_library(SharedFile SharedFile.cpp)
 
-# Link against zlib
+# Link against zlib for the shared library
 find_package(ZLIB REQUIRED)
-target_link_libraries(main ZLIB::ZLIB)
+target_link_libraries(SharedFile ZLIB::ZLIB)
+
+# Add executables
+add_executable(newMiner newMiner.cpp)
+add_executable(newServer newServer.cpp)
+
+# Link the shared library to the executables
+target_link_libraries(newMiner SharedFile)
+target_link_libraries(newServer SharedFile)

@@ -9,8 +9,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 # Find ZLIB
 find_package(ZLIB REQUIRED)
 
-# Add the shared library directory
-add_subdirectory(/app/SharedLibrary ${CMAKE_BINARY_DIR}/shared)
+# Add the shared library directorys
+add_subdirectory(/app/SharedLibrary ${CMAKE_BINARY_DIR}/app)
 
 # Add the executable
 add_executable(newServer newServer.cpp)

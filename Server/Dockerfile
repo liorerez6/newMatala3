@@ -10,9 +10,12 @@ RUN apt-get update && apt-get install -y \
     cmake \
     zlib1g-dev \
     && apt-get clean
-
-# Set up working directory
+    
+    # Set up working directory
 WORKDIR /app
+
+RUN mkdir -p /app/mnt/mta
+
 
 # Copy the entire project directory to /app
 COPY . /app
@@ -25,5 +28,7 @@ RUN cmake .. && make
 WORKDIR /app/Server/build
 RUN cmake .. && make
 
+
+WORKDIR /app
 # Set the entrypoint for the container
-CMD ["./newServer"]
+CMD ["/app/Server/build/newServer"]

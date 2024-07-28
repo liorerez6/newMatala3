@@ -15,9 +15,9 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-#define PATH_PIPED_NAME_SERVER_TO_MINER "/home/liorerez6/Desktop/Piped_Server_To_Miner_"
-#define PATH_OF_COMMON_FILE "/home/liorerez6/Desktop/CommonFile.conf"
-#define PATH_PIPED_NAME_MINER_TO_SERVER "/home/liorerez6/Desktop/Piped_Miner_To_Server"
+#define PATH_PIPED_NAME_SERVER_TO_MINER "/app/mnt/mta/Piped_Server_To_Miner_"
+#define PATH_OF_COMMON_FILE "/app/mnt/mta/CommonFile.conf"
+#define PATH_PIPED_NAME_MINER_TO_SERVER "/app/mnt/mta/Piped_Miner_To_Server"
 
 class BlockForHash {
 public:

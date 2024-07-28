@@ -167,9 +167,12 @@ void broadcastBlockToAllMiners()
 void serverLoop() 
 {
     const char* outputFilePath = "/var/log/mtacoin.log";
-    redirectOutputToFile(outputFilePath);
 
     InitServer();
+
+    redirectOutputToFile(outputFilePath);
+
+   
     TLV tlv;
     ssize_t bytesRead;
 

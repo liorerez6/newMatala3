@@ -57,6 +57,8 @@ class Block
 
 class TLV
 {
+    public:
+
     bool m_subscription;
     Block m_Block;
     int m_minerId;
@@ -71,10 +73,9 @@ void serverLoop();
 
 /* signals's helper variables */
 //volatile sig_atomic_t signal_received = 0;
-volatile sig_atomic_t check_blocks_flag = 0;
+//volatile sig_atomic_t check_blocks_flag = 0;
 
-list<Block> blockchain;
-Block testingBlock;  
+list<Block> blockchain; 
 int numOfMiners = 0;
 int fdOfCommonFile = 0;
 int g_Difficulty = 0;
@@ -162,22 +163,25 @@ void InitServer()
 
     close(fdOfCommonFile);
 
+    string PIPED_NAME_1 = "/home/liorerez6/Desktop/Piped_Miner_To_Server";
+    const char* READ_PIPED_NAME = PIPED_NAME_1.c_str();
+
+    if (mkfifo(READ_PIPED_NAME, 0666) != 0) 
+    {
+        perror("mkfifo");
+        exit(1);
+    }
+
+    ReadMinerFD = open(READ_PIPED_NAME, O_RDWR); //maybe add RDWR
+    if(ReadMinerFD < 0) 
+    {
+        exit(1);
+    }
 }
 
 void signal_handler(int i_Sig) {
     numOfMiners++;
-    string PIPED_NAME_1 = "/home/liorerez6/Desktop/Piped_Miner_To_Server";
-    const char* READ_PIPED_NAME = PIPED_NAME_1.c_str();
-
-    if(numOfMiners == 1) 
-    {
-        ReadMinerFD = open(READ_PIPED_NAME, O_RDWR); //maybe add RDWR
-        if(ReadMinerFD < 0) 
-        {
-            exit(1);
-        }
-    }
-
+    
     string PIPED_NAME_2 = "/home/liorerez6/Desktop/Piped_Server_To_Miner_";
     string PIPED_NAME_STR_2 = PIPED_NAME_2 + to_string(numOfMiners);
     const char* WRITE_PIPED_NAME = PIPED_NAME_STR_2.c_str();
@@ -218,63 +222,62 @@ void signal_handler(int i_Sig) {
     rewind(file);
     fwrite(buffer, sizeof(char), strlen(buffer), file);
     fclose(file);
-
-    //--------------------------------------------------
-    check_blocks_flag = 1;
 }
 
 void broadcastBlockToAllMiners()
 {
-    Block temp = blockchain.back();
-
     for (int i = 0; i < numOfMiners;i++)
     {
-        write(WriteMinerFD[i],&temp ,sizeof(Block));
+        write(WriteMinerFD[i],&blockchain.back() ,sizeof(Block));
     }
-
 }
 
 void serverLoop() 
 {
     InitServer();
-
+    TLV tlv;
     BlockForHash genesisBlock1(0, time(NULL), 0, g_Difficulty, 1, 0);
     genesisBlock1.updateTimestamp();
     Block genesisBlock(genesisBlock1, 0);
     blockchain.push_back(genesisBlock);
 
-    signal(SIGUSR1, signal_handler);
+    //signal(SIGUSR1, signal_handler);
+
 
     while(true) 
     {
-        if (check_blocks_flag) 
+        while (true) 
         {
-            serverCheckingBlocks();
-            check_blocks_flag = 0;
+        //read(ReadMinerFD, &testingBlock, sizeof(Block)); 
+
+        read(ReadMinerFD, &tlv, sizeof(TLV)); 
+
+        if(tlv.m_subscription)
+        {
+            signal_handler(5);
         }
+        else
+        {
+            if(proofOfWork(tlv.m_Block))
+            {
+                Block testingBlock = tlv.m_Block;
+                blockchain.push_back(testingBlock);
+                cout << dec;
+                cout << "Server: New block added by " << testingBlock.m_Block.relayed_by << ", attributes: height(" << testingBlock.m_Block.height << ")" << 
+                ", timestamp(" << testingBlock.m_Block.timestamp << ")" << ", hash("; 
+                cout << "0x" << hex << testingBlock.hash << ")" << ", prev_hash(0x" << testingBlock.m_Block.prev_hash << ")";
+                cout << dec;
+                cout << ", difficulty(" << testingBlock.m_Block.difficulty << ")" << ", nonce(" << testingBlock.m_Block.nonce << ")" << endl;
+                
+                broadcastBlockToAllMiners();
+            }
+        }
+
+        
+    }
     }
 }
 
-void serverCheckingBlocks()
-{
-    while (true) 
-    {
-        read(ReadMinerFD, &testingBlock, sizeof(Block)); 
-
-        if(proofOfWork(testingBlock))
-        {
-            blockchain.push_back(testingBlock);
-            cout << dec;
-            cout << "Server: New block added by " << testingBlock.m_Block.relayed_by << ", attributes: height(" << testingBlock.m_Block.height << ")" << 
-            ", timestamp(" << testingBlock.m_Block.timestamp << ")" << ", hash("; 
-            cout << "0x" << hex << testingBlock.hash << ")" << ", prev_hash(0x" << testingBlock.m_Block.prev_hash << ")";
-            cout << dec;
-            cout << ", difficulty(" << testingBlock.m_Block.difficulty << ")" << ", nonce(" << testingBlock.m_Block.nonce << ")" << endl;
-            
-            broadcastBlockToAllMiners();
-        }
-    }
-}
 
 int main()
 {

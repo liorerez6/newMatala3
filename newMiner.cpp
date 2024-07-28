@@ -42,7 +42,7 @@ class BlockForHash{
 
 class Block
 {
-    public:
+public:
 
     BlockForHash m_Block;
     unsigned int hash;
@@ -54,6 +54,8 @@ class Block
 
 class TLV
 {
+public:
+
     bool m_subscription;
     Block m_Block;
     int m_minerId;
@@ -100,7 +102,8 @@ void minerLoop() {
     // Miner ID
 
     Block currentBlock;
-    
+    TLV tlv;
+
     // config file handling ------------------------------------------------------------------
     int fdOfCommonFile = open("/home/liorerez6/Desktop/CommonFile.conf", O_RDONLY);
 
@@ -144,15 +147,6 @@ void minerLoop() {
     string PIPED_NAME_STR_2 = PIPED_NAME_2 + to_string(minerCounter);
     const char* READ_PIPED_NAME = PIPED_NAME_STR_2.c_str();
     //-------------------------------------------------------------------------------
-
-    if(minerCounter == 1)
-    {
-        if (mkfifo(WRITE_PIPED_NAME, 0666) != 0) 
-        {
-            perror("mkfifo");
-            exit(1);
-        }
-    }
    
     if (mkfifo(READ_PIPED_NAME, 0666) != 0) 
     {
@@ -162,23 +156,28 @@ void minerLoop() {
 
     Read_fd = open(READ_PIPED_NAME, O_RDWR);
 
-    
-
-    kill(serverId, SIGUSR1);
+    cout << sizeof(TLV) << endl;
+    Write_fd = open(WRITE_PIPED_NAME, O_WRONLY);
 
     if (Read_fd == -1) 
     {
         perror("open");
         exit(1);
     }
-
-    Write_fd = open(WRITE_PIPED_NAME, O_WRONLY);
-
     if (Write_fd == -1) 
     {
         perror("open");
         exit(1);
     }
+
+    tlv.m_subscription = true;
+    tlv.m_minerId = minerCounter;
+    
+    write(Write_fd, &tlv, sizeof(TLV));
+
+   // kill(serverId, SIGUSR1);
+
+  
 
     read(Read_fd, &currentBlock, sizeof(Block)); // waiting untill gets
 
@@ -221,12 +220,17 @@ void minerLoop() {
         cout << "0x" << hex << currentBlock.hash << endl;
         cout << dec;
         //------------------------------
-        cout<< sizeof(currentBlock) << "BLOCK:" << sizeof(Block) << endl;
-        ssize_t bytesWritten = write(Write_fd, &currentBlock, sizeof(Block)); 
-        if (bytesWritten != sizeof(Block)) 
-        {
-            std::cerr << "Error writing to pipe: expected " << sizeof(Block) << " bytes, but wrote " << bytesWritten << " bytes." << std::endl;
-        } 
+
+        tlv.m_subscription = false;
+        tlv.m_Block = currentBlock;
+
+        ssize_t bytesWritten = write(Write_fd, &tlv, sizeof(TLV));
+
+        //ssize_t bytesWritten = write(Write_fd, &currentBlock, sizeof(Block)); 
+        // if (bytesWritten != sizeof(TLV)) 
+        // {
+        //     std::cerr << "Error writing to pipe: expected " << sizeof(Block) << " bytes, but wrote " << bytesWritten << " bytes." << std::endl;
+        // } 
     }
 }
 
